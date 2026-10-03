@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مُدارِك | قارئ ومحلل المستندات الذكي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- مكتبة معالجة واستخراج نصوص الـ PDF محلياً -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- مكتبة تنسيق نصوص Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #f9f8f6;
+      --bg-card: #f3efe9;
+      --bg-card-hover: #ede7df;
+      --text-main: #2b2825;
+      --text-sub: #78716a;
+      --border-soft: #e5ded5;
+      --accent: #5e6b54; /* زيتوني هادئ مستوحى من Japandi */
+      --accent-hover: #4e5a45;
+      --accent-light: #eaede7;
+      --user-bubble: #ebe4da;
+      --bot-bubble: #ffffff;
+      --shadow-soft: 0 4px 20px -2px rgba(43, 40, 37, 0.05);
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Tajawal', 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+    }
+
+    header {
+      max-width: 1400px;
+      margin: 0 auto 1.5rem auto;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 1rem;
+    }
+
+    .brand-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-title span {
+      font-size: 0.85rem;
+      font-weight: 500;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .api-config-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .input-field, .select-field {
+      background: #ffffff;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.9rem;
+      font-size: 0.88rem;
+      color: var(--text-main);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-field:focus, .select-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+
+    .app-layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 1.5rem;
+      flex: 1;
+    }
+
+    @media (max-width: 992px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-soft);
+      min-height: 580px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .panel-header h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    /* منطقة رفع الملفات */
+    .dropzone {
+      border: 2px dashed var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 2.2rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: #faf8f5;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .dropzone svg {
+      width: 44px;
+      height: 44px;
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1.8;
+      margin-bottom: 0.8rem;
+    }
+
+    .dropzone p {
+      font-size: 0.95rem;
+      color: var(--text-sub);
+    }
+
+    .file-input-hidden {
+      display: none;
+    }
+
+    .file-meta-card {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      background: #ffffff;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.88rem;
+    }
+
+    /* صندوق الملخص */
+    .summary-container {
+      margin-top: 1.2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .summary-content {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      overflow-y: auto;
+      font-size: 0.94rem;
+      line-height: 1.8;
+      color: var(--text-main);
+      max-height: 400px;
+    }
+
+    .summary-content:empty::before {
+      content: "سيظهر ملخص المستند التحليلي هنا بعد الرفع والمراجعة...";
+      color: var(--text-sub);
+      font-style: italic;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+      border: 1px solid var(--border-soft);
+    }
+
+    .btn-secondary:hover {
+      background: #e3dcd1;
+    }
+
+    /* صندوق الشات */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-history {
+      flex: 1;
+      background: #faf8f5;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 1.2rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-height: 520px;
+      margin-bottom: 1rem;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 0.85rem 1.15rem;
+      border-radius: var(--radius-md);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .message.user {
+      align-self: flex-start;
+      background: var(--user-bubble);
+      color: var(--text-main);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      align-self: flex-end;
+      background: var(--bot-bubble);
+      color: var(--text-main);
+      border: 1px solid var(--border-soft);
+      border-bottom-left-radius: 4px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+    }
+
+    .loading-pulse {
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      مُدارِك
+      <span>AI Document Analyst</span>
+    </div>
+    <div class="api-config-bar">
+      <input type="password" id="apiKeyInput" class="input-field" placeholder="مفتاح Google AI Studio API..." style="width: 230px;">
+      <select id="modelSelect" class="select-field">
+        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (سريع جداً)</option>
+        <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash (تحليل عميق)</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="app-layout">
+    <!-- لوحة المستند والملخص -->
+    <section class="panel">
+      <div class="panel-header">
+        <h2>المستند والتحليل الأولي</h2>
+        <button id="copySummaryBtn" class="btn btn-secondary" style="display: none;">نسخ الملخص</button>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <svg viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <p><strong>اسحب ملف PDF أو صورة هنا</strong> أو اضغط للاختيار</p>
+        <span style="font-size: 0.78rem; color: var(--text-sub);">يدعم PDF، PNG، JPEG، WEBP</span>
+        <input type="file" id="fileInput" class="file-input-hidden" accept=".pdf, image/*">
+      </div>
+
+      <div id="fileMeta" class="file-meta-card" style="display: none;">
+        <span id="fileName" style="font-weight: 600;"></span>
+        <button id="analyzeBtn" class="btn">بدء التلخيص والتحليل</button>
+      </div>
+
+      <div class="summary-container">
+        <div class="summary-content" id="summaryView"></div>
+      </div>
+    </section>
+
+    <!-- لوحة المساعد الذكي والمحادثة -->
+    <section class="panel chat-panel">
+      <div class="panel-header">
+        <h2>استفسار وتعديل الملخص</h2>
+      </div>
+
+      <div class="chat-history" id="chatHistory">
+        <div class="message assistant">
+          أهلاً بك. ارفع أي ملف وسأقوم بتلخيصه واستخلاص أهم نقاطه، كما يمكنك توجيهي لتعديل صياغة الملخص أو الإجابة عن أي تساؤل داخله.
+        </div>
+      </div>
+
+      <form id="chatForm" class="chat-input-row">
+        <input type="text" id="chatInput" class="input-field" placeholder="اطلب تعديل فقرة، إضافة نقاط، أو سؤالاً عن الملف..." autocomplete="off">
+        <button type="submit" id="sendBtn" class="btn">إرسال</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    // إعداد عمال PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // المتغيرات العامة
+    let activeFile = null;
+    let extractedDocumentText = "";
+    let base64ImageData = null;
+    let mimeType = "";
+    let chatConversationHistory = [];
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileMeta = document.getElementById('fileMeta');
+    const fileName = document.getElementById('fileName');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const summaryView = document.getElementById('summaryView');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatHistory = document.getElementById('chatHistory');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const modelSelect = document.getElementById('modelSelect');
+
+    // استعادة المفتاح المخزن إن وجد
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) apiKeyInput.value = savedKey;
+
+    apiKeyInput.addEventListener('change', () => {
+      localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+    });
+
+    // سحب وإفلات الملفات
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      activeFile = file;
+      fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      fileMeta.style.display = 'flex';
+      extractedDocumentText = "";
+      base64ImageData = null;
+      mimeType = file.type;
+    }
+
+    // استخراج نصوص PDF بالكامل من المتصفح
+    async function extractPdfText(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item => item.str);
+        fullText += `\n--- صفحة ${i} ---\n` + strings.join(' ');
+      }
+      return fullText;
+    }
+
+    // قراءة الصورة كـ Base64
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // استدعاء Gemini API
+    async function callGemini(contents, systemInstruction = "") {
+      const apiKey = apiKeyInput.value.trim();
+      if (!apiKey) throw new Error("يرجى إدخال مفتاح Google AI Studio API في الخانة المخصصة بالأعلى.");
+
+      const model = modelSelect.value;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const payload = {
+        contents: contents
+      };
+
+      if (systemInstruction) {
+        payload.systemInstruction = {
+          parts: [{ text: systemInstruction }]
+        };
+      }
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "فشل الاتصال بـ Google AI Studio");
+      }
+
+      const data = await response.json();
+      return data.candidates[0].content.parts[0].text;
+    }
+
+    // تنفيذ التلخيص
+    analyzeBtn.addEventListener('click', async () => {
+      if (!activeFile) return;
+
+      analyzeBtn.disabled = true;
+      summaryView.innerHTML = '<span class="loading-pulse">جارٍ قراءة الملف وتحليله عبر Gemini...</span>';
+
+      try {
+        let parts = [];
+
+        if (activeFile.type === "application/pdf") {
+          extractedDocumentText = await extractPdfText(activeFile);
+          parts.push({ text: `يرجى مراجعة وتلخيص هذا المستند بشكل دقيق، منظم، ومقسم إلى نقاط رئيسية وخلاصة تنفيذية:\n\n${extractedDocumentText}` });
+        } else if (activeFile.type.startsWith("image/")) {
+          base64ImageData = await fileToBase64(activeFile);
+          parts.push({
+            inlineData: {
+              mimeType: activeFile.type,
+              data: base64ImageData
+            }
+          });
+          parts.push({ text: "قم بتحليل ومراجعة محتوى هذه الصورة بالكامل واستخراج كافة البيانات والمعلومات وتلخيصها بوضوح." });
+        } else {
+          // ملفات نصية عامة
+          extractedDocumentText = await activeFile.text();
+          parts.push({ text: `يرجى مراجعة وتلخيص المحتوى التالي:\n\n${extractedDocumentText}` });
+        }
+
+        const summary = await callGemini([{ role: "user", parts: parts }], "أنت محلل وثائق خبير. قدم ملخصات وافية، أنيقة، منسقة بصيغة Markdown، وباللغة العربية الفصحى الهادئة.");
+        summaryView.innerHTML = marked.parse(summary);
+        copySummaryBtn.style.display = 'inline-flex';
+
+        // تهيئة سجل الشات بالسياق
+        chatConversationHistory = [
+          { role: "user", parts: parts },
+          { role: "model", parts: [{ text: summary }] }
+        ];
+
+        appendMessage("assistant", "تم تلخيص المستند بنجاح. يمكنك سؤالي عن أي بند فيه أو مطالبتي بتعديل صياغة الملخص.");
+      } catch (err) {
+        summaryView.innerHTML = `<span style="color: #9f3a38;">خطأ: ${err.message}</span>`;
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    // المحادثة والتعديل
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = chatInput.value.trim();
+      if (!query) return;
+
+      appendMessage("user", query);
+      chatInput.value = "";
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
+
+      // إنشاء عنصر انتظار
+      const waitingBubble = appendMessage("assistant", '<span class="loading-pulse">جارٍ المراجعة...</span>');
+
+      try {
+        chatConversationHistory.push({
+          role: "user",
+          parts: [{ text: query }]
+        });
+
+        const reply = await callGemini(
+          chatConversationHistory,
+          "أنت مساعد تحليلي مرتبط بالمستند المرفوع والملخص الحالي. ساعد المستخدم في الإجابة بدقة أو إعادة صياغة الملخص وتحديثه إذا طلب منك ذلك."
+        );
+
+        waitingBubble.innerHTML = marked.parse(reply);
+        chatConversationHistory.push({
+          role: "model",
+          parts: [{ text: reply }]
+        });
+      } catch (err) {
+        waitingBubble.innerHTML = `<span style="color: #9f3a38;">خطأ: ${err.message}</span>`;
+      } finally {
+        sendBtn.disabled = false;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+    });
+
+    function appendMessage(role, htmlContent) {
+      const msg = document.createElement('div');
+      msg.className = `message ${role}`;
+      msg.innerHTML = htmlContent;
+      chatHistory.appendChild(msg);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      return msg;
+    }
+
+    copySummaryBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(summaryView.innerText).then(() => {
+        const prev = copySummaryBtn.textContent;
+        copySummaryBtn.textContent = 'تم النسخ!';
+        setTimeout(() => copySummaryBtn.textContent = prev, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
